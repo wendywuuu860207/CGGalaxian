@@ -1,0 +1,318 @@
+<!-- Licensed under a BSD license. See license.html for license -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>CG_HW1_1053332</title>
+<link type="text/css" href="resources/webgl-tutorials.css" rel="stylesheet" />
+</head>
+<body>
+<div class="description">
+<h1 id = "gState" style="color:#00275E; font-size: 35px">Shoot the enemy with spacebar</h1>
+<h2 id = "theScore" style="color:#00275E; font-size: 20">Score: 0</h2>
+</div>
+<canvas id="canvas"></canvas>
+</body>
+<!-- vertex shader -->
+<script id="2d-vertex-shader" type="x-shader/x-vertex">
+attribute vec2 a_position;
+attribute vec2 a_texCoord;
+
+uniform vec2 u_resolution;
+
+varying vec2 v_texCoord;
+
+void main() {
+   // convert the rectangle from pixels to 0.0 to 1.0
+   vec2 zeroToOne = a_position / u_resolution;
+
+   // convert from 0->1 to 0->2
+   vec2 zeroToTwo = zeroToOne * 2.0;
+
+   // convert from 0->2 to -1->+1 (clipspace)
+   vec2 clipSpace = zeroToTwo - 1.0;
+
+   gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+
+   // pass the texCoord to the fragment shader
+   // The GPU will interpolate this value between points.
+   v_texCoord = a_texCoord;
+}
+</script>
+<!-- fragment shader -->
+<script id="2d-fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+
+// our texture
+uniform sampler2D u_image;
+
+// the texCoords passed in from the vertex shader.
+varying vec2 v_texCoord;
+
+void main() {
+   gl_FragColor = texture2D(u_image, v_texCoord);
+}
+</script>
+<!--
+for most samples webgl-utils only provides shader compiling/linking and
+canvas resizing because why clutter the examples with code that's the same in every sample.
+See http://webglfundamentals.org/webgl/lessons/webgl-boilerplate.html
+and http://webglfundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
+for webgl-utils, m3, m4, and webgl-lessons-ui.
+-->
+<script src="resources/webgl-utils.js"></script>
+<script>
+"use strict";
+
+function main() {
+  var lose = false;
+  var rightPressed = false;
+  var leftPressed = false;
+  var playerPosition = 0;
+  var bullet = [-10, -10];
+  var GotPoint = 0;
+  var enemy = [getRandom(299), 0];
+  document.addEventListener("keydown", keyDownHandler, false);
+  var enemyStyle = 0;
+  var playerX = 0;
+  var image = new Image();
+  var image2 = new Image();
+  var image3 = new Image();
+  var image4 = new Image();
+  var image5 = new Image();
+  var image6 = new Image();
+  //picResouce
+  image.src = "resources/s1053332_imag1.jpg";  // MUST BE SAME DOMAIN!!!
+  image2.src = "resources/s1053332_imag2.jpg";
+  image3.src = "resources/s1053332_imag3.jpg";
+  image4.src = "resources/s1053332_imag4.jpg";
+  image5.src = "resources/s1053332_imag5.jpg";
+  image6.src = "resources/s1053332_imag6.jpg";
+  image.onload = function() {
+    drawScene(image, playerX, enemy, bullet, GotPoint, lose, enemyStyle);
+  }
+	//move player by keyboard
+  function keyDownHandler(e) {
+    if(e.keyCode == 39) {
+      playerX += 3;
+      if(playerX > 298)
+        playerX = 298;
+      drawScene(image, playerX, enemy, bullet, GotPoint, lose, enemyStyle);
+    }
+    else if(e.keyCode == 37) {
+      playerX -= 3;
+      if(playerX < 0)
+        playerX = 0;
+      drawScene(image, playerX, enemy, bullet, GotPoint, lose, enemyStyle);
+    }
+    else if(e.keyCode == 32){
+        if(!lose){
+          bullet[1] = 248;
+          bullet[0] = playerX+25;
+          drawScene(image, playerX, enemy, bullet, GotPoint, lose, enemyStyle); 
+        }
+    }
+  }
+
+function drawScene(image, playerX, enemy, bullet, GotPoint, lose, enemyStyle) {
+  // Get A WebGL context
+  /** @type {HTMLCanvasElement} */
+  var canvas = document.getElementById("canvas");
+  var gl = canvas.getContext("webgl");
+  if (!gl) {
+    return;
+  }
+
+  // setup GLSL program
+  var program = webglUtils.createProgramFromScripts(gl, ["2d-vertex-shader", "2d-fragment-shader"]);
+
+  // look up where the vertex data needs to go.
+  var positionLocation = gl.getAttribLocation(program, "a_position");
+  var texcoordLocation = gl.getAttribLocation(program, "a_texCoord");
+
+  // Create a buffer to put three 2d clip space points in
+  var positionBuffer = gl.createBuffer();
+
+  // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  // Set a rectangle the same size as the image.
+  setRectangle(gl, 0, 0, 400, 298);
+
+  // provide texture coordinates for the rectangle.
+  var texcoordBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      0.0,  0.0,
+      1.0,  0.0,
+      0.0,  1.0,
+      0.0,  1.0,
+      1.0,  0.0,
+      1.0,  1.0,
+  ]), gl.STATIC_DRAW);
+
+  // Create a texture.
+  var texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Set the parameters so we can render any size image.
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+  // Upload the image into the texture.
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image6);
+
+  // lookup uniforms
+  var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+
+  webglUtils.resizeCanvasToDisplaySize(gl.canvas);
+
+  // Tell WebGL how to convert from clip space to pixels
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+  // Clear the canvas
+  gl.clearColor(30, 30, 30, 30);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  // Tell it to use our program (pair of shaders)
+  gl.useProgram(program);
+
+  // Turn on the position attribute
+  gl.enableVertexAttribArray(positionLocation);
+
+  // Bind the position buffer.
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+  // Tell the position attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+  var size = 2;          // 2 components per iteration
+  var type = gl.FLOAT;   // the data is 32bit floats
+  var normalize = false; // don't normalize the data
+  var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+  var offset = 0;        // start at the beginning of the buffer
+  gl.vertexAttribPointer(
+      positionLocation, size, type, normalize, stride, offset)
+
+  // Turn on the teccord attribute
+  gl.enableVertexAttribArray(texcoordLocation);
+
+  // Bind the position buffer.
+  gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+
+  // Tell the position attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+  var size = 2;          // 2 components per iteration
+  var type = gl.FLOAT;   // the data is 32bit floats
+  var normalize = false; // don't normalize the data
+  var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+  var offset = 0;        // start at the beginning of the buffer
+  gl.vertexAttribPointer(
+      texcoordLocation, size, type, normalize, stride, offset)
+
+  // set the resolution
+  gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+
+  // Draw the rectangle.
+  var primitiveType = gl.TRIANGLES;
+  var offset = 0;
+  var count = 6;
+  gl.drawArrays(primitiveType, offset, count);
+  
+  //畫玩家
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  setRectangle(gl, playerX, 248, 50, 50);
+  gl.drawArrays(primitiveType, offset, count);
+  //畫敵人
+  if(enemyStyle == 0)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image3);
+  else if(enemyStyle == 1)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image4);
+  else
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image5);
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  setRectangle(gl, enemy[0], enemy[1], 35, 35);
+  gl.drawArrays(primitiveType, offset, count);
+
+  //畫子彈
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image2);
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  setRectangle(gl, bullet[0], bullet[1], 10, 15);
+  gl.drawArrays(primitiveType, offset, count);
+}
+var then = 0;
+function render(time)
+{
+  time *= 0.001;
+  var now = time;
+  var deltaTime = Math.min(0.1, now - then);
+  then = now;
+
+  if(bullet[1] <= (enemy[1]+35.1)){
+    if(bullet[0]+10 > enemy[0] && bullet[0] <= enemy[0]+35){
+      enemy[0] = getRandom(299);
+      enemy[1] = 0;
+      bullet[0] = -100;
+      bullet[1] = -100;
+      if(!lose){
+        enemyStyle = getRandom(3);
+        GotPoint += 1;
+      }
+      var element=document.getElementById("theScore");
+      element.innerHTML="Score: "+ GotPoint ;
+    }
+    else
+      bullet[1] -= 10;      
+  }
+  else if(bullet[1] >= -15){
+    bullet[1] -= 10;
+  }
+  if(lose)
+  {
+    enemy[0] = -100;
+    enemy[1] = -100;
+    bullet[0] = -100;
+    bullet[1] = -100;
+  }
+  else if(enemy[1] >= 218.1) //gameover state
+  {
+    lose = true;
+    var element=document.getElementById("gState");
+    element.innerHTML="Game over! Refresh the page to start the new game.";
+  }
+  else{
+    enemy[1] += 1;
+  }
+  drawScene(image, playerX, enemy, bullet, GotPoint, lose, enemyStyle);
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+
+}
+
+
+
+function setRectangle(gl, x, y, width, height) {
+  var x1 = x;
+  var x2 = x + width;
+  var y1 = y;
+  var y2 = y + height;
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+     x1, y1,
+     x2, y1,
+     x1, y2,
+     x1, y2,
+     x2, y1,
+     x2, y2,
+  ]), gl.STATIC_DRAW);
+}
+function getRandom(x){
+    return Math.floor(Math.random()*x);
+};
+
+main();
+</script>
+</html>
+
+
